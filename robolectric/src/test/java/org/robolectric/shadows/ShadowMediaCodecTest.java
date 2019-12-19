@@ -210,11 +210,14 @@ public final class ShadowMediaCodecTest {
     int outputBufferSize = 1000;
     CodecConfig config = new CodecConfig(/*inputBufferSize=*/ 0, outputBufferSize, (in, out) -> {});
     ShadowMediaCodec.addEncoder(AUDIO_MIME, config);
-
     MediaCodec codec = createSyncEncoder();
+
     int inputBuffer = codec.dequeueInputBuffer(/*timeoutUs=*/ 0);
     codec.queueInputBuffer(
         inputBuffer, /* offset=*/ 0, /* size=*/ 0, /* presentationTimeUs=*/ 0, /* flags=*/ 0);
+
+    assertThat(codec.dequeueOutputBuffer(new BufferInfo(), /* timeoutUs= */ 0))
+        .isEqualTo(MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
 
     ByteBuffer outputBuffer =
         codec.getOutputBuffer(codec.dequeueOutputBuffer(new BufferInfo(), /*timeoutUs=*/ 0));
@@ -233,6 +236,10 @@ public final class ShadowMediaCodecTest {
         /* presentationTimeUs= */ 123456,
         /* flags= */ MediaCodec.BUFFER_FLAG_END_OF_STREAM);
     BufferInfo info = new BufferInfo();
+
+    assertThat(codec.dequeueOutputBuffer(info, /* timeoutUs= */ 0))
+        .isEqualTo(MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
+
     codec.dequeueOutputBuffer(info, /* timeoutUs= */ 0);
 
     assertThat(info.offset).isEqualTo(0);
@@ -280,31 +287,10 @@ public final class ShadowMediaCodecTest {
   }
 
   @Test
-  public void inSyncMode_outputBufferInfoSet() throws Exception {
+  public void inSyncMode_firstOutputBufferIndexAfterConfigureIsFormatChange() throws Exception {
     MediaCodec codec = createSyncEncoder();
-    int inputBuffer1 = codec.dequeueInputBuffer(/* timeoutUs= */ 0);
-    int inputBuffer2 = codec.dequeueInputBuffer(/* timeoutUs= */ 0);
-    ShadowMediaCodec.setDequeueOutputBufferReturnValue(
-        inputBuffer1, MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
-    codec.queueInputBuffer(
-        inputBuffer1,
-        /* offset= */ 0,
-        /* size= */ 512,
-        /* presentationTimeUs= */ 0,
-        /* flags= */ 0);
-    codec.queueInputBuffer(
-        inputBuffer2,
-        /* offset= */ 0,
-        /* size= */ 512,
-        /* presentationTimeUs= */ 0,
-        /* flags= */ 0);
-
-    BufferInfo info = new BufferInfo();
-    int val1 = codec.dequeueOutputBuffer(info, /* timeoutUs= */ 0);
-    int val2 = codec.dequeueOutputBuffer(info, /* timeoutUs= */ 0);
-
-    assertThat(val1).isEqualTo(MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
-    assertThat(val2).isEqualTo(inputBuffer2);
+    assertThat(codec.dequeueOutputBuffer(new BufferInfo(), 0))
+        .isEqualTo(MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
   }
 
   @Test
